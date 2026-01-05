@@ -7,10 +7,9 @@ Two standalone browser-based visual systems.
 
 - **entropic-randomizer.html**
   Real-time threat simulation and entropy visualization.
-  Canvas-based, no dependencies.
 
 - **filter-assembler.html**
-  Network filter rule generation and visualization demo.
+  Network filter rule generation and visualization.
   Includes timelines, rule synthesis, and heat maps.
 
 ## Usage
