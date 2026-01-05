@@ -1,0 +1,215 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>ENTROPIC RANDOMIZER</title>
+<style>
+  :root{ --bg:#000; --panel:#0b0b0b; --gold:#ffcc33; --muted:#3b2e00; --glass:rgba(255,204,51,0.04); --danger:#ff4444; font-family:Inter,system-ui,Segoe UI,Roboto,Arial; }
+  html,body{height:100%;margin:0;background:linear-gradient(180deg,#000 0%, #070601 60%);color:var(--gold);}
+  .app{padding:14px;display:grid;grid-template-columns:320px 1fr 420px;grid-template-rows:72px 1fr;gap:12px;height:100vh;box-sizing:border-box}
+  header{grid-column:1/-1;display:flex;align-items:center;gap:12px;padding:12px;border-radius:10px;background:linear-gradient(90deg, rgba(255,204,51,0.03), rgba(255,204,51,0.01));border:1px solid rgba(255,204,51,0.06)}
+  .brand h1{margin:0;font-size:18px}
+  .panel{background:linear-gradient(180deg, rgba(255,204,51,0.02), rgba(255,204,51,0.01));border:1px solid rgba(255,204,51,0.04);padding:12px;border-radius:10px}
+  .left{overflow:auto}
+  .entropy-meter{height:180px;display:flex;flex-direction:column;align-items:center;justify-content:center}
+  .gauge{width:160px;height:160px;border-radius:50%;background:conic-gradient(var(--gold) 0deg, rgba(255,204,51,0.06) 120deg, rgba(0,0,0,0.6) 240deg);display:flex;align-items:center;justify-content:center;box-shadow:0 8px 40px rgba(255,204,51,0.02) inset}
+  .gauge .val{font-size:22px;font-weight:700;color:#fff}
+  .small{font-size:12px;color:#d9c37a}
+
+  .filter-ui{display:flex;flex-direction:column;gap:8px;margin-top:12px}
+  .filter-row{display:flex;gap:8px;align-items:center}
+  .chip{padding:6px 8px;border-radius:8px;border:1px solid rgba(255,204,51,0.06);background:rgba(255,204,51,0.02);font-size:12px}
+
+  .center{display:grid;grid-template-rows:1fr 220px;gap:12px}
+  .canvas-wrap{display:flex;gap:12px}
+  canvas{border-radius:8px;background:linear-gradient(180deg, rgba(0,0,0,0.3), rgba(0,0,0,0.6));}
+  .hexdump{font-family:monospace;background:linear-gradient(180deg, rgba(255,204,51,0.02), rgba(255,204,51,0.01));padding:10px;border-radius:8px;height:220px;overflow:auto;color:#e9d99b;font-size:12px}
+
+  .right{display:flex;flex-direction:column;gap:12px;overflow:auto}
+  .streams{display:flex;flex-direction:column;gap:8px}
+  .stream{height:72px;border-radius:8px;padding:8px;font-family:monospace;background:linear-gradient(180deg, rgba(255,204,51,0.01), rgba(255,204,51,0.02));border:1px solid rgba(255,204,51,0.04);}
+
+  .network-map{height:260px;border-radius:8px;overflow:hidden}
+  .threats{display:flex;flex-direction:column;gap:8px}
+  .threat{display:flex;justify-content:space-between;align-items:center;padding:8px;border-radius:8px;background:linear-gradient(180deg, rgba(0,0,0,0.18), rgba(0,0,0,0.28));border:1px solid rgba(255,204,51,0.04);font-family:monospace}
+  .status{font-weight:700;padding:6px 8px;border-radius:6px}
+  .status.active{background:rgba(255,68,68,0.12);color:var(--danger);border:1px solid rgba(255,68,68,0.12)}
+  .status.killed{background:rgba(255,204,51,0.12);color:var(--gold);border:1px solid rgba(255,204,51,0.12)}
+
+  footer{grid-column:1/-1;font-size:12px;color:#b79a3b;display:flex;justify-content:space-between;align-items:center}
+
+  body::after{content:"";position:fixed;inset:0;pointer-events:none;background-image:linear-gradient(0deg, rgba(255,204,51,0.02) 1px, transparent 1px),linear-gradient(90deg, rgba(255,204,51,0.02) 1px, transparent 1px);background-size:160px 160px,160px 160px;opacity:0.08}
+
+  @media (max-width:1100px){.app{grid-template-columns:1fr;grid-template-rows:72px auto auto;}}
+</style>
+</head>
+<body>
+<div class="app">
+  <header>
+    <div style="display:flex;align-items:center;gap:12px">
+      <svg width="44" height="44" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><rect x="1" y="1" width="22" height="22" rx="4" stroke="#ffcc33" stroke-opacity="0.18" stroke-width="1.6"/><path d="M5 12h14M12 5v14" stroke="#ffcc33" stroke-width="1.6" stroke-linecap="round"/></svg>
+    </div>
+    <div class="brand">
+      <h1>ENTROPIC NEUTRALIZER</h1>
+      <div style="font-size:12px;color:#d9c37a">Active threat response</div>
+    </div>
+    <div style="margin-left:auto;display:flex;gap:10px;align-items:center">
+      <div class="chip">Mode: AUTO-QUARANTINE</div>
+      <div class="chip">Policy: AGGRESSIVE</div>
+      <div class="chip">Threat Pool • live</div>
+    </div>
+  </header>
+
+  <aside class="left panel">
+    <div class="entropy-meter">
+      <div class="gauge" id="gauge"><div class="val" id="gaugeVal">--%</div></div>
+      <div class="small">Entropy collected</div>
+    </div>
+
+    <div class="filter-ui">
+      <div style="font-size:13px;color:#f0db9a">Auto Threat Filter</div>
+      <div class="filter-row"><div class="chip">SRC: any</div><div class="chip">DST: any</div></div>
+      <div class="filter-row"><div class="chip">PROTO: HTTP/SMTP/FILE</div><div class="chip">SCAN: signature + heuristic</div></div>
+      <div style="margin-top:8px;font-size:12px;color:#e3d49c">Recent Actions</div>
+      <div style="display:flex;flex-direction:column;gap:6px;margin-top:6px">
+        <div style="font-size:12px;color:#e9d99b" id="recent1">- Initializing scanners...</div>
+        <div style="font-size:12px;color:#e9d99b" id="recent2">- Network probes active</div>
+      </div>
+    </div>
+  </aside>
+
+  <main class="center">
+    <div style="display:flex;gap:12px;align-items:stretch">
+      <div class="panel" style="flex:1;min-width:420px;position:relative;overflow:hidden">
+        <canvas id="specCanvas" width="880" height="360" style="display:block"></canvas>
+        <canvas id="explodeCanvas" width="880" height="360" style="position:absolute;left:0;top:0;pointer-events:none"></canvas>
+      </div>
+      <div style="width:360px;display:flex;flex-direction:column;gap:12px">
+        <div class="panel" style="height:160px;display:flex;flex-direction:column;gap:6px;">
+          <div style="display:flex;justify-content:space-between;align-items:center"><strong>Active Threats</strong><div style="font-size:12px;color:#e8d48a" id="threatCount">--</div></div>
+          <div class="threats" id="threatList" style="overflow:auto;max-height:110px">
+            <!-- populated by JS -->
+          </div>
+        </div>
+        <div class="panel" style="height:160px;display:flex;flex-direction:column;">
+          <strong style="font-size:13px">Quarantine Queue</strong>
+          <div id="queue" style="margin-top:8px;font-family:monospace;color:#e9d99b;min-height:80px">(empty)</div>
+        </div>
+      </div>
+    </div>
+
+    <div style="display:flex;gap:12px">
+      <div class="panel hexdump" style="flex:1">
+        <div style="display:flex;justify-content:space-between;align-items:center"><strong>Threat Feed (sample payloads)</strong><div style="font-size:12px;color:#e8d48a" id="poolSize">-- items</div></div>
+        <pre id="feed" style="margin-top:8px;white-space:pre-wrap;line-height:1.2;color:#f6e9b1"></pre>
+      </div>
+      <div class="panel" style="width:320px;display:flex;flex-direction:column;gap:8px;">
+        <div style="display:flex;justify-content:space-between;align-items:center"><strong>Threat Types</strong><div style="font-size:12px;color:#e8d48a" id="typeLabel">--</div></div>
+        <canvas id="pieKill" width="320" height="160"></canvas>
+      </div>
+    </div>
+  </main>
+
+  <aside class="right panel">
+    <div style="display:flex;justify-content:space-between;align-items:center"><strong>Incident Timeline</strong><div style="font-size:12px;color:#e8d48a">actions • auto</div></div>
+    <div style="margin-top:8px;overflow:auto;max-height:300px;font-family:monospace;color:#e9d99b" id="timeline">- system boot</div>
+    <div style="margin-top:12px">
+      <button id="panic" style="background:transparent;border:1px solid rgba(255,204,51,0.08);padding:8px 10px;border-radius:8px;color:var(--gold);cursor:pointer">TRIGGER FULL SWEEP</button>
+    </div>
+  </aside>
+
+  <footer>
+    <div>active neutralizer</div>
+    <div id="time" style="opacity:0.8"></div>
+  </footer>
+</div>
+
+<script>
+// utilities
+const rand = (a=0,b=1)=>Math.random()*(b-a)+a; const rint = (a,b)=>Math.floor(rand(a,b+1));
+const threats = [];
+const threatTypes = ['Virus','Phishing Link','Trojan','Ransomware','Malware','Spyware','Exploit'];
+const threatNames = ['PAYLOAD','INJECT','CLICK_FRAUD','DROPBEAR','NIGHTCRAWL','SILENT_NOMAD','GOLDEN_EGG'];
+
+// DOM refs
+const gaugeVal = document.getElementById('gaugeVal');
+const threatList = document.getElementById('threatList');
+const threatCount = document.getElementById('threatCount');
+const queueEl = document.getElementById('queue');
+const feed = document.getElementById('feed');
+const poolSize = document.getElementById('poolSize');
+const timeline = document.getElementById('timeline');
+const typeLabel = document.getElementById('typeLabel');
+const pieKill = document.getElementById('pieKill'); const pkctx = pieKill.getContext('2d');
+
+// canvases
+const specCanvas = document.getElementById('specCanvas'); const sctx = specCanvas.getContext('2d');
+const explodeCanvas = document.getElementById('explodeCanvas'); const ectx = explodeCanvas.getContext('2d');
+
+// particle system for neutralization explosion
+let particles = [];
+function spawnExplosion(x,y,color){
+  for(let i=0;i<40;i++){ particles.push({x,y,vx:rand(-3,3),vy:rand(-4,1),life:rand(30,80),col:color}); }
+}
+function updateParticles(){ ectx.clearRect(0,0,explodeCanvas.width,explodeCanvas.height); for(let i=particles.length-1;i>=0;i--){ const p=particles[i]; p.x += p.vx; p.y += p.vy; p.vy += 0.12; p.life--; ectx.globalAlpha = Math.max(0, p.life/80); ectx.fillStyle = p.col; ectx.fillRect(p.x,p.y,2,2); if(p.life<=0) particles.splice(i,1); } ectx.globalAlpha=1; }
+
+// create a new randomized threat
+function createThreat(){ const t = { id: Math.random().toString(36).slice(2,8).toUpperCase(), name: threatNames[rint(0,threatNames.length-1)], type: threatTypes[rint(0,threatTypes.length-1)], score: rint(10,98), src: `10.${rint(0,255)}.${rint(0,255)}.${rint(1,254)}`, dst: `192.168.${rint(0,255)}.${rint(1,254)}`, payload: genPayload() , status: 'active', time: new Date().toLocaleTimeString() };
+  threats.push(t); pushFeed(t); renderThreats(); return t; }
+
+function genPayload(){ const hex = Array.from({length: rint(8,32)},()=> rint(0,255).toString(16).padStart(2,'0')); return hex.join(' '); }
+
+function renderThreats(){ threatList.innerHTML=''; threats.slice().reverse().forEach(t=>{ const el = document.createElement('div'); el.className='threat'; el.innerHTML = `<div style="display:flex;flex-direction:column"><div style="font-size:13px">${t.name} (${t.id})</div><div style="font-size:11px;color:#d9c37a">${t.type} • ${t.src} → ${t.dst}</div></div><div style="display:flex;flex-direction:column;align-items:flex-end"><div class="status ${t.status=='active'?'active':'killed'}">${t.status.toUpperCase()}</div><div style="font-size:11px;color:#e9d99b;margin-top:6px">${t.score}%</div></div>`; threatList.appendChild(el); }); threatCount.textContent = threats.filter(t=>t.status==='active').length + ' / ' + threats.length; poolSize.textContent = threats.length + ' items'; }
+
+function pushFeed(t){ const line = `[${t.time}] DETECTED ${t.type} ${t.name} @ ${t.src} -> ${t.dst} • score=${t.score}%\n${t.payload}\n\n`; feed.textContent = line + feed.textContent; timeline.innerHTML = `- ${t.time} DETECTED ${t.type} ${t.id}<br>` + timeline.innerHTML; }
+
+// neutralize highest score active threat
+function neutralize(){ const active = threats.filter(t=>t.status==='active'); if(active.length===0) return; // pick highest score
+  active.sort((a,b)=>b.score-a.score); const t = active[0]; t.status='killed'; t.killedAt = new Date().toLocaleTimeString(); renderThreats(); queueEl.textContent = `QUARANTINED: ${t.name} (${t.id}) — ${t.type}`; timeline.innerHTML = `- ${t.killedAt} NEUTRALIZED ${t.type} ${t.id}<br>` + timeline.innerHTML; // find visual position to explode on spec canvas
+  const rect = specCanvas.getBoundingClientRect(); const x = rand(100, rect.width-100); const y = rand(40, rect.height-40); spawnExplosion(x,y,'rgba(255,204,51,0.95)'); }
+
+// spectrogram animation (background)
+function drawSpec(){ const w=specCanvas.width, h=specCanvas.height; sctx.fillStyle='rgba(0,0,0,0.14)'; sctx.fillRect(0,0,w,h);
+  // shift left
+  const img = sctx.getImageData(2,0,w-2,h);
+  sctx.putImageData(img,0,0);
+  // draw new column representing detection intensity
+  for(let y=0;y<h;y++){
+    const intensity = Math.floor(60 + 140 * Math.random()*Math.abs(Math.sin(y/20 + Date.now()/800)));
+    sctx.fillStyle = `rgba(${intensity},${Math.floor(intensity*0.85)},${Math.floor(intensity*0.3)},0.9)`;
+    sctx.fillRect(w-2,y,2,1);
+  }
+}
+
+// pie of kills by type
+function drawPie(){ pkctx.clearRect(0,0,pieKill.width,pieKill.height); const cx = pieKill.width/2, cy=pieKill.height/2, r=60; const counts = {}; threatTypes.forEach(t=>counts[t]=0); threats.forEach(t=>{ if(t.status==='killed') counts[t.type]++; }); const vals = threatTypes.map(t=>counts[t]); const total = vals.reduce((a,b)=>a+b,0) || 1; let start = -Math.PI/2; for(let i=0;i<threatTypes.length;i++){ const ang = (vals[i]/total)*(Math.PI*2); pkctx.beginPath(); pkctx.moveTo(cx,cy); pkctx.arc(cx,cy,r,start,start+ang); pkctx.closePath(); pkctx.fillStyle = `rgba(255,204,51,${0.06 + (i/12)})`; pkctx.fill(); start += ang; }
+  typeLabel.textContent = threats.filter(t=>t.status==='killed').length + ' neutralized'; }
+
+// periodic flow: create threats randomly and neutralize
+setInterval(()=>{ if(Math.random()<0.8) createThreat(); if(Math.random()<0.55) neutralize(); renderThreats(); drawPie(); }, 900);
+
+// animations
+function loop(){ drawSpec(); updateParticles(); requestAnimationFrame(loop); }
+loop();
+
+// hi-dpi fix
+function fixDPI(canvas){ const dpr = window.devicePixelRatio || 1; const rect = canvas.getBoundingClientRect(); canvas.width = rect.width * dpr; canvas.height = rect.height * dpr; const ctx = canvas.getContext('2d'); ctx.setTransform(dpr,0,0,dpr,0,0); }
+[specCanvas, explodeCanvas, pieKill].forEach(c=>{ c.style.width = c.width + 'px'; c.style.height = c.height + 'px'; fixDPI(c); });
+window.addEventListener('resize', ()=>{ [specCanvas, explodeCanvas, pieKill].forEach(c=>{ const rect=c.getBoundingClientRect(); c.width = Math.floor(rect.width); c.height = Math.floor(rect.height); fixDPI(c); }); });
+
+// UI interactions
+document.getElementById('panic').addEventListener('click', ()=>{ // trigger a sweep
+  timeline.innerHTML = `- ${new Date().toLocaleTimeString()} FULL SWEEP TRIGGERED<br>` + timeline.innerHTML;
+  for(let i=0;i<5;i++) setTimeout(()=>neutralize(), i*220);
+});
+
+// small clock
+setInterval(()=>{ document.getElementById('time').textContent = new Date().toLocaleString(); }, 1000);
+
+// initial seeds
+for(let i=0;i<6;i++){ createThreat(); }
+
+</script>
+</body>
+</html>

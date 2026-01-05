@@ -1,0 +1,214 @@
+<!doctype html>
+<html lang="en">
+<head>\  
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>FILTER ASSEMBLER — White & Gold Network Forge (Demo)</title>
+<style>
+  :root{ --bg:#ffffff; --panel:#fbfaf8; --gold:#c99a2e; --muted:#f0e9e0; --accent:#b88613; --glass: rgba(200,150,30,0.06); font-family:Inter, system-ui, -apple-system, 'Segoe UI', Roboto, Arial; }
+  html,body{height:100%;margin:0;background:linear-gradient(180deg,#ffffff 0%, #f7f5f2 60%);color:#2a2a2a}
+  .app{padding:14px;display:grid;grid-template-columns:360px 1fr 420px;grid-template-rows:68px 1fr;gap:12px;height:100vh;box-sizing:border-box}
+  header{grid-column:1/-1;display:flex;align-items:center;gap:12px;padding:12px;border-radius:10px;background:linear-gradient(90deg, rgba(201,154,46,0.04), rgba(201,154,46,0.02));border:1px solid rgba(201,154,46,0.06)}
+  .brand h1{margin:0;font-size:18px;color:#1f1f1f}
+  .brand p{margin:0;font-size:12px;color:#6b5f3a}
+  .panel{background:var(--panel);border:1px solid rgba(0,0,0,0.04);padding:12px;border-radius:10px;box-shadow:0 6px 30px rgba(0,0,0,0.03)}
+  .left{overflow:auto}
+  .stat{display:flex;align-items:center;justify-content:space-between;padding:10px;border-radius:8px;background:linear-gradient(180deg, rgba(201,154,46,0.02), rgba(201,154,46,0.01));border:1px solid rgba(201,154,46,0.03)}
+  .mini{display:flex;gap:8px;margin-top:12px}
+
+  .streams{font-family:monospace;background:linear-gradient(180deg,#fff,#fbfaf8);padding:8px;border-radius:8px;border:1px solid rgba(201,154,46,0.03);height:140px;overflow:auto}
+  .log{font-family:monospace;padding:8px;border-radius:8px;height:200px;overflow:auto;background:linear-gradient(180deg,#fff,#fbfaf8);border:1px solid rgba(0,0,0,0.02)}
+
+  .center{display:grid;grid-template-rows:1fr 240px;gap:12px}
+  .big-grid{display:grid;grid-template-columns:1fr 420px;gap:12px}
+  canvas{border-radius:8px;background:linear-gradient(180deg, rgba(245,242,238,0.6), rgba(250,248,246,0.8));}
+  .card{padding:10px;border-radius:8px}
+
+  .right{display:flex;flex-direction:column;gap:12px;overflow:auto}
+  .rules{display:flex;flex-direction:column;gap:8px}
+  .rule{display:flex;justify-content:space-between;align-items:center;padding:8px;border-radius:8px;background:linear-gradient(180deg,#fff,#fbfaf8);border:1px solid rgba(201,154,46,0.03);font-family:monospace}
+  .rule .meta{font-size:12px;color:#6b5f3a}
+
+  .matrix{width:100%;height:160px;border-radius:6px;overflow:hidden}
+  .footer{grid-column:1/-1;display:flex;justify-content:space-between;align-items:center;color:#7a6a3e;font-size:12px}
+
+  body::after{content:"";position:fixed;inset:0;pointer-events:none;background-image:linear-gradient(0deg, rgba(201,154,46,0.02) 1px, transparent 1px),linear-gradient(90deg, rgba(201,154,46,0.01) 1px, transparent 1px);background-size:200px 200px,200px 200px;opacity:0.06}
+  @media (max-width:1100px){.app{grid-template-columns:1fr;grid-template-rows:68px auto auto;}}
+</style>
+</head>
+<body>
+<div class="app">
+  <header>
+    <div style="display:flex;align-items:center;gap:12px">
+      <svg width="48" height="48" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><rect x="1" y="1" width="22" height="22" rx="4" stroke="#c99a2e" stroke-opacity="0.24" stroke-width="1.5"/><path d="M7 12h10M12 7v10" stroke="#c99a2e" stroke-width="1.6" stroke-linecap="round"/></svg>
+    </div>
+    <div class="brand">
+      <h1>NETWORK FILTER ASSEMBLER</h1>
+      <p>teoteoteo</p>
+    </div>
+    <div style="margin-left:auto;display:flex;gap:12px;align-items:center">
+      <div class="stat"><div style="font-size:11px;color:#7a6233">Collected</div><div style="font-weight:700;font-size:16px" id="collected">0</div></div>
+      <div class="stat"><div style="font-size:11px;color:#7a6233">Neutralized</div><div style="font-weight:700;font-size:16px" id="neutralized">0</div></div>
+      <div class="stat"><div style="font-size:11px;color:#7a6233">Rules</div><div style="font-weight:700;font-size:16px" id="ruleCount">0</div></div>
+    </div>
+  </header>
+
+  <aside class="left panel">
+    <div style="display:flex;flex-direction:column;gap:10px">
+      <div class="card panel">
+        <strong>Incoming Detections</strong>
+        <div class="streams" id="incoming">(waiting for detections...)</div>
+      </div>
+
+      <div class="card panel">
+        <strong>Detection Log</strong>
+        <div class="log" id="dlog">--</div>
+      </div>
+    </div>
+  </aside>
+
+  <main class="center">
+    <div class="big-grid">
+      <div class="panel" style="min-width:420px;">
+        <div style="display:flex;justify-content:space-between;align-items:center"><strong>Kill & Collection Timeline</strong><div style="font-size:12px;color:#7a6233" id="timelineSummary">live</div></div>
+        <canvas id="lineChart" width="820" height="320"></canvas>
+        <div style="display:flex;gap:8px;margin-top:8px">
+          <div style="flex:1;padding:8px;border-radius:8px;background:linear-gradient(180deg,#fff,#fbfaf8);border:1px solid rgba(0,0,0,0.02)"><div style="font-size:12px;color:#7a6233">Avg Kill Rate</div><div style="font-size:20px;font-weight:700" id="avgKill">0 / min</div></div>
+          <div style="width:200px;padding:8px;border-radius:8px;background:linear-gradient(180deg,#fff,#fbfaf8);border:1px solid rgba(0,0,0,0.02)"><div style="font-size:12px;color:#7a6233">Filter Strength</div><div style="font-size:20px;font-weight:700" id="filterStrength">0%</div></div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <strong>Rule Forge</strong>
+        <div style="font-size:12px;color:#6b5f3a;margin-top:6px">Auto-assembling filter rules based on neutralized payloads and signatures.</div>
+        <div class="rules" id="rulesArea" style="margin-top:8px;max-height:360px;overflow:auto"></div>
+        <div style="display:flex;gap:8px;margin-top:8px"><button id="exportRules" style="padding:8px;border-radius:8px;border:1px solid rgba(201,154,46,0.06);background:white;cursor:pointer">EXPORT JSON</button><button id="applyRules" style="padding:8px;border-radius:8px;border:1px solid rgba(201,154,46,0.06);background:linear-gradient(90deg,#fff,#fcf9f6);cursor:pointer">APPLY TO FABRIC</button></div>
+      </div>
+    </div>
+
+    <div style="display:flex;gap:12px;align-items:stretch">
+      <div class="panel" style="flex:1">
+        <strong>Network Matrix (heat)</strong>
+        <canvas id="matrix" class="matrix" width="820" height="160"></canvas>
+      </div>
+      <div class="panel" style="width:320px">
+        <strong>Signature Cloud</strong>
+        <div id="cloud" style="min-height:140px;margin-top:8px;font-family:monospace;color:#6b5f3a"></div>
+      </div>
+    </div>
+  </main>
+
+  <aside class="right panel">
+    <div style="display:flex;justify-content:space-between;align-items:center"><strong>Filter Visualizer</strong><div style="font-size:12px;color:#7a6233">compiled</div></div>
+    <div style="height:180px;margin-top:8px"><canvas id="filterCanvas" width="380" height="160"></canvas></div>
+
+    <div style="margin-top:8px"><strong>Quarantine Heap</strong><div id="heap" style="font-family:monospace;margin-top:6px;min-height:140px;color:#6b5f3a;overflow:auto"></div></div>
+
+    <div style="margin-top:8px"><strong>Statistics</strong>
+      <div style="display:flex;gap:6px;margin-top:6px"><div style="flex:1;padding:8px;border-radius:8px;background:#fff;border:1px solid rgba(0,0,0,0.02)"><div style="font-size:12px;color:#7a6233">Total Scans</div><div style="font-weight:700;font-size:16px" id="scans">0</div></div><div style="flex:1;padding:8px;border-radius:8px;background:#fff;border:1px solid rgba(0,0,0,0.02)"><div style="font-size:12px;color:#7a6233">False Pos</div><div style="font-weight:700;font-size:16px" id="falsepos">0</div></div></div>
+    </div>
+  </aside>
+
+  <div class="footer">
+    <div>Theme: white • gold — show-only network filter assembler</div>
+    <div id="time">--</div>
+  </div>
+</div>
+
+<script>
+// Utilities
+const rand = (a=0,b=1)=>Math.random()*(b-a)+a; const rint=(a,b)=>Math.floor(rand(a,b+1));
+function uid(len=6){ return Math.random().toString(36).slice(2,2+len).toUpperCase(); }
+
+// DOM refs
+const incoming = document.getElementById('incoming');
+const dlog = document.getElementById('dlog');
+const collectedEl = document.getElementById('collected');
+const neutralizedEl = document.getElementById('neutralized');
+const ruleCount = document.getElementById('ruleCount');
+const rulesArea = document.getElementById('rulesArea');
+const heap = document.getElementById('heap');
+const cloud = document.getElementById('cloud');
+const scansEl = document.getElementById('scans');
+const falseposEl = document.getElementById('falsepos');
+const avgKill = document.getElementById('avgKill');
+const filterStrength = document.getElementById('filterStrength');
+
+let collected = [];
+let neutralized = [];
+let rules = [];
+let scans = 0, falsepos = 0;
+
+// generate incoming detections
+const types = ['Virus','Phishing','Trojan','Worm','Backdoor','Exploit','Adware'];
+function makeDetection(){ const t = {id:uid(5), type: types[rint(0,types.length-1)], sig: Math.random().toString(16).slice(2,12), src:`10.${rint(0,255)}.${rint(0,255)}.${rint(1,254)}`, dst:`172.16.${rint(0,255)}.${rint(1,254)}`, score: rint(5,99), time: new Date().toLocaleTimeString()}; scans++; incoming.innerText = `${t.time} • DETECT ${t.type} ${t.id} @ ${t.src} → ${t.dst} • s=${t.score}` + "\n" + incoming.innerText; dlog.innerHTML = `<div>[${t.time}] Detected ${t.id} — ${t.type} • score ${t.score}%</div>` + dlog.innerHTML; collected.push(t); collectedEl.textContent = collected.length; updateCloud(); if(Math.random()<0.5) scheduleNeutralize(t); else if(Math.random()<0.06) { falsepos++; falseposEl.textContent=falsepos; }
+}
+
+function scheduleNeutralize(t){ setTimeout(()=>{ // simulate analysis
+  const killed = { ...t, killedAt: new Date().toLocaleTimeString(), signature: 'SIG_'+t.sig.slice(0,6)+'_'+uid(3) };
+  neutralized.push(killed); neutralizedEl.textContent = neutralized.length; heap.innerText = `QUARANTINED: ${killed.id} ${killed.signature}\n` + heap.innerText; dlog.innerHTML = `<div>[${killed.killedAt}] Neutralized ${killed.id} — ${killed.type}</div>` + dlog.innerHTML; buildRuleFrom(killed); updateStats(); }, rint(400,2200)); }
+
+function updateCloud(){ // show top signatures
+  const top = collected.slice(-20).map(c=>c.sig).slice(0,20); cloud.innerHTML = top.map(s=>`<span style="display:inline-block;margin:6px;padding:6px 8px;border-radius:6px;background:linear-gradient(90deg,#fff,#fbfaf8);border:1px solid rgba(201,154,46,0.04);font-family:monospace;color:#6b5f3a">${s}</span>`).join(''); }
+
+function buildRuleFrom(k){ const rule = { id: 'R-'+uid(4), match: {type:k.type, signature:k.signature, src:k.src}, action: 'DROP', priority: rint(100,999) }; rules.push(rule); ruleCount.textContent = rules.length; renderRules(); }
+
+function renderRules(){ rulesArea.innerHTML = ''; rules.slice().reverse().forEach(r=>{ const el = document.createElement('div'); el.className='rule'; el.innerHTML = `<div><div style="font-weight:700">${r.id}</div><div class="meta">match:${r.match.type} sig:${r.match.signature} src:${r.match.src}</div></div><div style="text-align:right"><div style="font-weight:700;color:${getGold()}">${r.action}</div><div style="font-size:12px;color:#6b5f3a">p:${r.priority}</div></div>`; rulesArea.appendChild(el); }); updateRuleStats(); }
+
+function updateRuleStats(){ const strength = Math.min(99, Math.round((rules.length / Math.max(1,collected.length)) * 100)); filterStrength.textContent = strength + '%'; ruleCount.textContent = rules.length; }
+
+function getGold(){ return '#8d6b1f'; }
+
+function updateStats(){ scansEl.textContent = scans; falseposEl.textContent = falsepos; avgKill.textContent = Math.round(neutralized.length/(Math.max(1,(scans/60)))) + ' / min'; }
+
+// Line chart for timeline
+const lineC = document.getElementById('lineChart'); const lctx = lineC.getContext('2d'); let lineData = Array.from({length:120},()=>0);
+function drawLine(){ const w=lineC.width, h=lineC.height; lctx.clearRect(0,0,w,h); // background grid
+  lctx.strokeStyle='rgba(140,120,80,0.08)'; lctx.lineWidth=1; for(let y=0;y<h;y+=40){ lctx.beginPath(); lctx.moveTo(0,y); lctx.lineTo(w,y); lctx.stroke(); }
+  // data
+  lctx.beginPath(); for(let i=0;i<lineData.length;i++){ const x=i*(w/lineData.length); const y=h - (lineData[i]/100)*h; if(i===0) lctx.moveTo(x,y); else lctx.lineTo(x,y); }
+  lctx.strokeStyle='rgba(201,154,46,0.95)'; lctx.lineWidth=2; lctx.stroke(); // fill
+  lctx.beginPath(); lctx.moveTo(0,h); for(let i=0;i<lineData.length;i++){ const x=i*(w/lineData.length); const y=h - (lineData[i]/100)*h; lctx.lineTo(x,y); } lctx.lineTo(w,h); lctx.closePath(); lctx.fillStyle='rgba(201,154,46,0.06)'; lctx.fill(); }
+
+// matrix heatmap
+const matrix = document.getElementById('matrix'); const mctx = matrix.getContext('2d'); function drawMatrix(){ const w=matrix.width, h=matrix.height; const cols=40, rows=8; const cellW = w/cols, cellH = h/rows; for(let r=0;r<rows;r++){ for(let c=0;c<cols;c++){ const v = Math.random(); mctx.fillStyle = `rgba(201,154,46,${0.02 + v*0.28})`; mctx.fillRect(c*cellW, r*cellH, cellW-1, cellH-1); } } }
+
+// filter canvas visualization
+const filterCanvas = document.getElementById('filterCanvas'); const fctx = filterCanvas.getContext('2d');
+function drawFilterVis(){ const w=filterCanvas.width, h=filterCanvas.height; fctx.clearRect(0,0,w,h); // nodes and links representing policy fabric
+  const nodes = []; for(let i=0;i<7;i++){ nodes.push({x:40 + i*(w-80)/6, y: rint(30,h-30), label: ['ingress','classifier','engine','quarantine','egress','logger','monitor'][i]}); }
+  nodes.forEach(n=>{ fctx.beginPath(); fctx.arc(n.x,n.y,18,0,Math.PI*2); fctx.fillStyle='#fff'; fctx.fill(); fctx.strokeStyle='rgba(201,154,46,0.18)'; fctx.stroke(); fctx.fillStyle='#6b5f3a'; fctx.font='11px monospace'; fctx.fillText(n.label, n.x-18, n.y+4); });
+  // highlight rules
+  for(let i=0;i<Math.min(rules.length,6);i++){ const a=nodes[i%nodes.length]; const b = nodes[(i+1)%nodes.length]; fctx.beginPath(); fctx.moveTo(a.x,a.y); fctx.lineTo(b.x,b.y); fctx.strokeStyle=`rgba(201,154,46,${0.08+0.12*(i+1)})`; fctx.lineWidth=2; fctx.stroke(); }
+}
+
+// signature cloud render (simple)
+function renderCloud(){ cloud.innerHTML = ''; const list = neutralized.slice(-30).map(n=>n.signature).slice(0,30); list.forEach((s,i)=>{ const el = document.createElement('span'); el.style.display='inline-block'; el.style.margin='6px'; el.style.padding='6px 10px'; el.style.borderRadius='8px'; el.style.border='1px solid rgba(201,154,46,0.04)'; el.style.background='#fff'; el.style.fontFamily='monospace'; el.style.color='#6b5f3a'; el.innerText = s; el.style.transform = `scale(${1+Math.sin(i)*0.03})`; cloud.appendChild(el); }); }
+
+// heap list
+function renderHeap(){ heap.innerHTML = ''; neutralized.slice().reverse().forEach(n=>{ const el = document.createElement('div'); el.style.padding='6px'; el.style.borderBottom='1px solid rgba(0,0,0,0.02)'; el.innerText = `${n.killedAt} • ${n.id} • ${n.signature} • ${n.type}`; heap.appendChild(el); }); }
+
+// periodic ticks
+setInterval(()=>{ // simulate detection flow
+  if(Math.random()<0.85) makeDetection(); // slide line data
+  const newVal = Math.min(100, Math.round((neutralized.length / Math.max(1,collected.length))*100 + Math.random()*20)); lineData.push(newVal); lineData.shift(); drawLine(); drawMatrix(); drawFilterVis(); renderCloud(); renderHeap(); updateUI(); }, 900);
+
+function updateUI(){ collectedEl.textContent = collected.length; neutralizedEl.textContent = neutralized.length; ruleCount.textContent = rules.length; document.getElementById('time').textContent = new Date().toLocaleString(); updateStats(); }
+
+// export rules
+document.getElementById('exportRules').addEventListener('click', ()=>{ const data = JSON.stringify(rules, null, 2); const blob = new Blob([data], {type:'application/json'}); const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'auto_rules.json'; a.click(); });
+
+// apply rules (visual)
+document.getElementById('applyRules').addEventListener('click', ()=>{ const now = new Date().toLocaleTimeString(); const applied = `Applied ${rules.length} rules to fabric @ ${now}`; dlog.innerHTML = `<div>[${now}] ${applied}</div>` + dlog.innerHTML; });
+
+// hi-dpi ensure
+function fixDPI(canvas){ const dpr = window.devicePixelRatio || 1; const rect = canvas.getBoundingClientRect(); canvas.width = rect.width * dpr; canvas.height = rect.height * dpr; const ctx = canvas.getContext('2d'); ctx.setTransform(dpr,0,0,dpr,0,0); }
+[ lineC, matrix, filterCanvas ].forEach(c=>{ c.style.width = c.width + 'px'; c.style.height = c.height + 'px'; fixDPI(c); });
+window.addEventListener('resize', ()=>{ [ lineC, matrix, filterCanvas ].forEach(c=>{ const rect=c.getBoundingClientRect(); c.width = Math.floor(rect.width); c.height = Math.floor(rect.height); fixDPI(c); }); });
+
+// initial seed
+for(let i=0;i<6;i++){ makeDetection(); }
+
+</script>
+</body>
+</html>
