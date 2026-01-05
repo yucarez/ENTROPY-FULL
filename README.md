@@ -22,6 +22,7 @@ No server required.
 
 ## Notes
 
-- Pure HTML + CSS + JavaScript
+- Pure Python (backend and frontend)
+- Pure HTML + CSS + JavaScript (index)
 - No external libraries
-- Demo / visualization focused
+- Research Group 7 made ts
